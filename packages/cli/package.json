@@ -22,11 +22,16 @@
     "dist",
     "README.md"
   ],
+  "man": [
+    "dist/vellar.1"
+  ],
   "engines": {
     "node": ">=20"
   },
   "scripts": {
-    "build": "tsup",
+    "build": "tsup && npm run gen:man",
+    "gen:man": "node dist/scripts/generate-man-page.js --output dist/vellar.1",
+    "prepublishOnly": "npm run test",
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
   },
