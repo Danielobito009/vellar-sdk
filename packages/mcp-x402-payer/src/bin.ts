@@ -5,6 +5,12 @@
 // other component exists, so there is no window in which a failure could print
 // it. Config errors exit non-zero with an actionable message on stderr — never
 // on stdout, which belongs to the MCP transport.
+//
+// After the signer is built, validate that it resolves to an account on the
+// configured network. This self-test catches configuration errors (wrong key,
+// wrong network, unfunded account) at startup rather than at the first payment,
+// and distinguishes account-not-found from RPC failures so the operator gets
+// actionable diagnostics.
 
 import { loadConfig } from "./config.js";
 import { createSpendLedger } from "./ledger.js";
@@ -12,6 +18,7 @@ import { formatError, log, registerSecret } from "./output.js";
 import { createPayer } from "./payer.js";
 import { createMcpServer, startStdio } from "./server.js";
 import { createOfficialSigner, createSmartAccountSigner } from "./signer.js";
+import { validateSignerAccount } from "./signer-validation.js";
 
 async function main(): Promise<void> {
   const config = loadConfig();
@@ -25,6 +32,12 @@ async function main(): Promise<void> {
   // smart-account path, where the spending limit is enforced on-chain.
   const smartAccount = config.walletAddress !== undefined;
   const signer = smartAccount ? createSmartAccountSigner(config) : createOfficialSigner(config);
+
+  // Validate that the signer account exists on the configured network.
+  // This self-test fails fast with a clear error rather than waiting for
+  // the first payment attempt.
+  await validateSignerAccount(config, signer.address);
+
   const payer = createPayer({ config, ledger, signer });
 
   log("info", "vellar x402 payer ready", {
